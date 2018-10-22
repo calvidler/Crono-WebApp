@@ -23,7 +23,7 @@ public class TimeMapper {
 	 
 	 private static final String insertStatement =
 			 
-			 "INSERT INTO APP.times VALUES (!0!, !1!, '!2!','!3!','!4!')";
+			 "INSERT INTO APP.times VALUES (!0!, !1!, '!2!','!3!','!4!', 0,1)";
 	 
 	 private static final String updateStatement =
 			 
@@ -34,8 +34,10 @@ public class TimeMapper {
 			 "DELETE APP.times  WHERE timeID = !1!)";
 	
 	public static List<Time> findMyTime(int myID) throws SQLException {
-		String str = stringSplit(findStatementString, ""+myID, 1);
-		PreparedStatement sqlPrepared = DBConnection.prepare(str);
+		//only accessing once no need for optimistic lock
+		String sql = "SELECT * "+
+				"FROM APP.times WHERE userID = "+myID;
+		PreparedStatement sqlPrepared = DBConnection.prepare(sql);
 		ResultSet rs = sqlPrepared.executeQuery();
 		List<Time> result = new ArrayList();
 		while (rs.next()) {
@@ -44,7 +46,9 @@ public class TimeMapper {
 			String startTime = rs.getString(3);
 	        String finishTime = rs.getString(4);
 	        String date = rs.getString(5);
-	        Time t = Employee.addTime(userID,timeID, startTime, finishTime, date);
+	        int paid = rs.getInt(6);
+	        int version = rs.getInt(7);
+	        Time t = new Time(userID,timeID, startTime, finishTime, date,paid,version);
 	        result.add(t);
 		}
 		return result;
@@ -81,16 +85,43 @@ public class TimeMapper {
 	}
 	
 	
-	public static void update(int id,int timeID, String startTime, String finishTime, String date) throws SQLException{
-		String str;
-		str = stringSplit(updateStatement,""+id,0 );
-		str = stringSplit(str,""+timeID,1 );
-		str = stringSplit(str,startTime,2 );
-		str = stringSplit(str,finishTime,3 );
-		str = stringSplit(str,date,4 );
+	public static void update(int id,int timeID, String startTime, String finishTime, String date,int version) throws SQLException{
+		String str = "SELECT * "+
+				"FROM APP.times "+
+				"WHERE timeID = " + timeID;
+		PreparedStatement preparedSQL = DBConnection.prepare(str);
+		ResultSet rs = preparedSQL.executeQuery();
+		if(rs.next()) {
+			int rsVersion = rs.getInt(8);
+			//checking version
+			if(rsVersion != version) {
+				try {
+					throw new InterruptedException("Row " + timeID + "in table user was by modified");
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			else {
+				
+				String sql = stringSplit(updateStatement,""+id,0 );
+				sql = stringSplit(str,""+timeID,1 );
+				sql = stringSplit(str,startTime,2 );
+				sql = stringSplit(str,finishTime,3 );
+				sql = stringSplit(str,date,4 );
+				
+				PreparedStatement sqlPrepared = DBConnection.prepare(str);
+				sqlPrepared.executeUpdate();
+			}
+		}else {
+			System.out.print("Time has been deleted");
+		}
 		
-		PreparedStatement sqlPrepared = DBConnection.prepare(str);
-		int rs = sqlPrepared.executeUpdate();
+		
+		
+		
+		
+	
 		
 	}
 	
@@ -106,8 +137,8 @@ public class TimeMapper {
 	//user - time association mapping
 		public static int numberTimes(int userID) throws SQLException {
 			String sql = "SELECT COUNT(TimeID) "+ 
-					 " FROM APP.times INNER JOIN APP.employees ON APP.times.userID = APP.employees.userID " +
-					 " WHERE APP.employees.userID = "+userID+"";
+					 " FROM APP.times INNER JOIN APP.users ON APP.times.userID = APP.users.userID " +
+					 " WHERE APP.users.userID = "+userID+"";
 			PreparedStatement sqlPrepared = DBConnection.prepare(sql);
 			ResultSet rs = sqlPrepared.executeQuery();
 			rs.next();
@@ -115,6 +146,12 @@ public class TimeMapper {
 			
 			return count;
 			
+		}
+		
+		public static void payTime(int id) throws SQLException {
+			String sql = "UPDATE APP.times SET paid = "+1+" WHERE timeID = "+ id + "";
+			PreparedStatement sqlPrepared = DBConnection.prepare(sql);
+			int rs = sqlPrepared.executeUpdate();
 		}
 		
 		
@@ -133,6 +170,37 @@ public class TimeMapper {
 			//embedded!
 			float pay = PayMapper.getPay(userID);
 			return Time.createPay(pay, startTime, finishTime);
+		}
+		
+		
+		public static Time getTime(int timeID) {
+			try {
+				String sql = "SELECT * "+
+						"FROM APP.times "+
+						"WHERE timeID = " + timeID;
+				PreparedStatement sqlPrepared;
+				
+				sqlPrepared = DBConnection.prepare(sql);
+				ResultSet rs = sqlPrepared.executeQuery();
+				rs.next();
+				int userID = rs.getInt(1);
+				int timeIDs = rs.getInt(2);
+				String startTime = rs.getString(3);
+				String finishTime = rs.getString(4);
+				String date = rs.getString(5);
+				int paid = rs.getInt(6);
+				int version = rs.getInt(7);
+				Time t = new Time(userID, timeIDs, startTime, finishTime, date, paid,version);
+				return t;
+				
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			return null;
+			
+			
 		}
 	
 	

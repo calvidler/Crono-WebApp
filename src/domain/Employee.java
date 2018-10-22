@@ -1,34 +1,23 @@
 package domain;
 
-import static org.junit.Assert.*;
-
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import datasource.UserMapper;
 import datasource.IdentityMap;
 import datasource.KeyTable;
 import datasource.TimeMapper;
 import datasource.UnitOfWork;
 
 public class Employee extends User {
-	private int id;
 	private List<Time> times = null;
-	public Employee(int id, String firstName, String lastName, String email, String userName, String password) {
-		super( firstName, lastName, email, userName, password);
-		this.id = id;
+	public Employee(int id, String firstName, String lastName, String email, String userName, String password, String role, int versionN) {
+		super( firstName, lastName, email, userName, password,id,role,versionN);
 		
 		
 		
 	}
-	public int getID() {
-        return id;
-    }
-
-    public void setID(int id) {
-        this.id = id;
-    }
+	
     
     
 	
@@ -40,8 +29,8 @@ public class Employee extends User {
 //		times = TimeMapper.findMyTime(id);
 //        return times;
 //	}
-    public static Time addTime(int userID, int timeID, String startTime, String finishTime, String date) {
-    	Time t = new Time(userID, timeID, startTime, finishTime, date);
+    public static Time addTime(int userID, int timeID, String startTime, String finishTime, String date, int paid, int version) {
+    	Time t = new Time(userID, timeID, startTime, finishTime, date, paid,version);
     	IdentityMap.addTime(t);
     	
     	return t;
@@ -64,9 +53,9 @@ public class Employee extends User {
 	}
 	
 	
-	public void instertTime(int userID, String startTime, String finishTime, String date) throws SQLException {
+	public void instertTime(int userID, String startTime, String finishTime, String date, int paid) throws SQLException {
 		int timeID = KeyTable.getKey("timeID");
-		Time t = new Time(userID,timeID,startTime,finishTime,date);
+		Time t = new Time(userID,timeID,startTime,finishTime,date, paid,1);
 		IdentityMap.addTime(t);
 
 		//implementing UnitOfWork for adding new times
@@ -80,7 +69,16 @@ public class Employee extends User {
 	}
 	
 	public int getNumberTimes() throws SQLException {
-		return TimeMapper.numberTimes(id);
+		return times.size();
+	}
+	
+	public static void payTime(int timeID) {
+		try {
+			TimeMapper.payTime(timeID);
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 
